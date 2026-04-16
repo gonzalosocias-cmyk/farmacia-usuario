@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Farmacia">
+<title>Farmacia</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+:root {
+  --bg:#0d1117;--surface:#161b22;--border:#21262d;
+  --green:#3fb950;--green-dim:#1a3a20;
+  --red:#f85149;--amber:#e3b341;--amber-dim:#2a1e00;
+  --blue:#58a6ff;--blue-dim:#0d2040;
+  --text:#e6edf3;--muted:#7d8590;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:15px;min-height:100dvh;padding-bottom:64px;overscroll-behavior:none;}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;}
+header h1{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--green);letter-spacing:.05em;}
+#week-badge{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);background:var(--border);padding:3px 8px;border-radius:20px;}
+#alert-banner{display:none;background:var(--amber-dim);border-bottom:1px solid var(--amber);padding:8px 16px;font-size:13px;color:var(--amber);text-align:center;font-weight:600;}
+#alert-banner.on{display:block;}
+
+#tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:20;}
+.tab-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;-webkit-appearance:none;transition:color .15s;}
+.tab-btn .ti{font-size:20px;}
+.tab-btn.active{color:var(--green);}
+.tab-btn.alert{color:var(--amber);}
+
+.page{display:none;padding:16px;flex-direction:column;gap:14px;}
+.page.active{display:flex;}
+
+.lbl{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;}
+.sec-ttl{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.badge-g{background:var(--green-dim);color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 8px;border-radius:20px;}
+.badge-a{background:var(--amber-dim);color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 8px;border-radius:20px;}
+
+.btn{flex:1;padding:13px 0;border-radius:var(--radius);border:none;font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn:active{opacity:.7;}
+.btn:disabled{background:var(--border)!important;color:var(--muted)!important;cursor:default;opacity:1!important;}
+.btn-green{background:var(--green);color:#000;}
+.btn-blue{background:var(--blue);color:#000;}
+.btn-amber{background:var(--amber);color:#000;}
+.btn-ghost{background:var(--border);color:var(--muted);}
+.btn-row{display:flex;gap:10px;}
+
+.mic-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0 6px;}
+#mic-btn{width:84px;height:84px;border-radius:50%;border:2px solid var(--green);background:var(--green-dim);color:var(--green);font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;transition:all .15s;}
+#mic-btn.on{border-color:var(--red);background:#3a1a1a;color:var(--red);animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,.4)}50%{box-shadow:0 0 0 14px rgba(248,81,73,0)}}
+#mic-lbl{font-size:13px;color:var(--muted);text-align:center;}
+#mic-lbl.on{color:var(--red);}
+
+#tx-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--amber);min-height:52px;line-height:1.5;word-break:break-word;transition:border-color .2s;}
+#tx-box.on{border-color:var(--amber);}
+
+#pc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:none;flex-direction:column;gap:10px;}
+#pc.on{display:flex;border-color:var(--green);}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
+.fg input,.fg textarea{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;width:100%;transition:border-color .15s;}
+.fg input:focus,.fg textarea:focus{border-color:var(--blue);}
+.fg textarea{resize:vertical;min-height:60px;}
+
+.hint{font-size:12px;color:var(--muted);line-height:1.5;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;}
+.hint strong{color:var(--text);}
+
+#p-list{display:flex;flex-direction:column;gap:8px;}
+.pi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;animation:fi .2s ease;}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.pi-info{flex:1;min-width:0;}
+.pi-name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pi-doc{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);margin-top:2px;}
+.pi-meds{font-size:12px;color:var(--amber);margin-top:4px;line-height:1.4;}
+.xbtn{background:none;border:1px solid var(--border);color:var(--muted);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;}
+.xbtn:active{background:var(--border);}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.empty .ico{font-size:28px;opacity:.4;}
+
+/* ENVÍO PAGE */
+.env-alert{background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:14px;}
+.env-alert .wt{color:var(--amber);font-weight:600;font-size:15px;}
+.env-alert .ws{color:var(--muted);font-size:13px;margin-top:4px;}
+.env-normal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;}
+.env-normal .wt{color:var(--muted);font-size:13px;}
+.env-normal .wd{color:var(--text);font-weight:600;font-size:22px;margin-top:2px;}
+.env-normal .ws{color:var(--muted);font-size:12px;margin-top:4px;}
+.ri{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;}
+.ri .rn{font-weight:600;font-size:14px;}
+.ri .rd{font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+.ri .rm{font-size:12px;color:var(--amber);margin-top:4px;line-height:1.4;}
+#rv-list{display:flex;flex-direction:column;gap:8px;}
+
+/* CONFIG */
+.cfg-sec{display:flex;flex-direction:column;gap:10px;}
+.cfg-ttl{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.er{display:flex;gap:8px;align-items:center;}
+.er input,.er select{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:border-color .15s;}
+.er input:focus,.er select:focus{border-color:var(--blue);}
+.er input::placeholder{color:var(--muted);}
+.er select option{background:var(--surface);}
+.er .en{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);width:18px;text-align:center;flex-shrink:0;}
+.cfg-save{width:100%;padding:13px;border-radius:var(--radius);border:none;background:var(--green);color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;-webkit-appearance:none;}
+.cfg-save:active{opacity:.7;}
+.cfg-info{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:13px;color:var(--muted);line-height:1.6;}
+.cfg-info strong{color:var(--text);display:block;margin-bottom:3px;}
+.pwa-box{background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);padding:13px;font-size:13px;color:var(--text);line-height:1.6;}
+.pwa-box strong{color:var(--blue);font-size:14px;display:block;margin-bottom:6px;}
+.pwa-box ol{padding-left:16px;margin:2px 0 8px;}
+.dbtn{width:100%;padding:11px;border-radius:var(--radius);border:1px solid var(--red);background:none;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;cursor:pointer;-webkit-appearance:none;}
+.dbtn:active{background:#3a1a1a;}
+
+/* MODALS */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:flex-end;justify-content:center;}
+.mo.on{display:flex;}
+.mb{background:var(--surface);border:1px solid var(--border);border-top-left-radius:16px;border-top-right-radius:16px;padding:24px 20px 32px;width:100%;display:flex;flex-direction:column;gap:13px;animation:su .25s ease;max-height:85dvh;overflow-y:auto;}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mb h2{font-size:16px;font-weight:600;}
+.mb p{font-size:13px;color:var(--muted);line-height:1.5;}
+.em-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;}
+.em-row.sel{border-color:var(--green);background:var(--green-dim);}
+.em-row .ck{font-size:16px;width:22px;text-align:center;}
+.em-row .ad{font-size:13px;}
+
+/* SPINNER */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sending-state{display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--muted);}
+
+#ns-warn{display:none;background:#2a1a0a;border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;font-size:13px;color:var(--amber);}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 18px;border-radius:20px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:200;}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💊 FARMACIA</h1>
+  <span id="week-badge">—</span>
+</header>
+<div id="alert-banner">⚠️ Día de envío — Revisá y enviá la lista a farmacia</div>
+
+<!-- PAGE INICIO -->
+<div id="pg-inicio" class="page active">
+  <div id="ns-warn">⚠️ Sin reconocimiento de voz. Usá Chrome en Android.</div>
+  <div class="mic-wrap">
+    <button id="mic-btn" onclick="toggleMic()">🎤</button>
+    <div id="mic-lbl">Presioná para dictar un paciente</div>
+  </div>
+  <div>
+    <div class="lbl">Transcripción</div>
+    <div id="tx-box">—</div>
+  </div>
+  <div class="hint"><strong>Ejemplo:</strong> "Juan Pérez, documento 12345678, omeprazol 20mg uno por día y amoxicilina suspensión 250mg"</div>
+  <div id="pc">
+    <div class="lbl">Confirmar registro</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="fg"><label>Nombre</label><input type="text" id="e-nom" placeholder="Nombre completo" autocomplete="off"></div>
+      <div class="fg"><label>Documento</label><input type="text" id="e-doc" inputmode="numeric" placeholder="CI / documento" autocomplete="off"></div>
+      <div class="fg"><label>Medicamentos</label><textarea id="e-med" placeholder="Medicamentos indicados"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" style="max-width:110px" onclick="cancelP()">Descartar</button>
+      <button class="btn btn-green" onclick="confirmP()">✓ Agregar</button>
+    </div>
+  </div>
+  <div>
+    <div class="sec-hdr" style="margin-bottom:10px">
+      <span class="sec-ttl">Esta semana</span>
+      <span id="cnt" class="badge-g">0</span>
+    </div>
+    <div id="p-list"><div class="empty"><span class="ico">🗂️</span><span>Sin registros aún</span></div></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-green" onclick="openAddModal()">+ Agregar paciente</button>
+  </div>
+</div>
+
+<!-- PAGE ENVÍO -->
+<div id="pg-envio" class="page">
+  <div id="env-box"></div>
+  <div>
+    <div class="sec-hdr" style="margin-bottom:10px">
+      <span class="sec-ttl">Lista a enviar</span>
+      <span id="rv-cnt" class="badge-a">0</span>
+    </div>
+    <div id="rv-list"><div class="empty"><span class="ico">🗂️</span><span>Sin registros</span></div></div>
+  </div>
+  <div id="send-status"></div>
+  <div class="btn-row">
+    <button class="btn btn-blue" onclick="goInicio()">👁 Revisar lista</button>
+    <button id="btn-env" class="btn btn-amber" onclick="openSendModal()" disabled>✉️ Preparar envío</button>
+  </div>
+</div>
+
+<!-- PAGE CONFIG -->
+<div id="pg-config" class="page">
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Destinatarios Farmacia</div>
+    <div class="er"><span class="en">1</span><input type="email" id="c-e1" placeholder="farmacia@ejemplo.uy" inputmode="email"></div>
+    <div class="er"><span class="en">2</span><input type="email" id="c-e2" placeholder="Opcional" inputmode="email"></div>
+    <div class="er"><span class="en">3</span><input type="email" id="c-e3" placeholder="Opcional" inputmode="email"></div>
+  </div>
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Mi email (copia con resumen)</div>
+    <div class="er"><input type="email" id="c-me" placeholder="mi@email.com" inputmode="email"></div>
+  </div>
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Email Administración</div>
+    <div class="er"><input type="email" id="c-admin" placeholder="administracion@ejemplo.uy" inputmode="email"></div>
+  </div>
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Día y hora de alerta</div>
+    <div class="er">
+      <span class="en" style="width:auto;white-space:nowrap;font-size:12px;color:var(--muted)">Día</span>
+      <select id="c-day">
+        <option value="1">Lunes</option>
+        <option value="2">Martes</option>
+        <option value="3" selected>Miércoles</option>
+        <option value="4">Jueves</option>
+        <option value="5">Viernes</option>
+      </select>
+    </div>
+    <div class="er">
+      <span class="en" style="width:auto;white-space:nowrap;font-size:12px;color:var(--muted)">Hora</span>
+      <input type="time" id="c-hour" value="13:00" style="color-scheme:dark;">
+    </div>
+  </div>
+  <button class="cfg-save" onclick="saveConfig()">Guardar configuración</button>
+
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Instalar como app (PWA)</div>
+    <div class="pwa-box">
+      <strong>📲 Agregar al inicio del celular</strong>
+      <strong>Android — Chrome:</strong>
+      <ol><li>Menú ⋮ → "Agregar a pantalla de inicio"</li><li>Confirmar</li></ol>
+      <strong>iPhone — Safari:</strong>
+      <ol><li>Compartir □↑ → "Agregar a pantalla de inicio"</li><li>Confirmar</li></ol>
+    </div>
+  </div>
+
+  <div class="cfg-sec">
+    <div class="cfg-ttl">Datos</div>
+    <button class="dbtn" onclick="clearAll()">🗑 Borrar todos los registros de esta semana</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div id="tab-bar">
+  <button class="tab-btn active" id="t-inicio" onclick="goTab('inicio')"><span class="ti">🏠</span>Inicio</button>
+  <button class="tab-btn" id="t-envio" onclick="goTab('envio')"><span class="ti">📤</span>Envío</button>
+  <button class="tab-btn" id="t-config" onclick="goTab('config')"><span class="ti">⚙️</span>Config</button>
+</div>
+
+<!-- MODAL ENVÍO -->
+<div id="mo-send" class="mo" onclick="if(event.target===this)closeSend()">
+  <div class="mb">
+    <h2>✉️ Preparar borradores</h2>
+    <p>Se crearán borradores en tu Gmail: farmacia, tu copia (con resumen) y administración. Solo tenés que abrirlos y apretar Enviar.</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="lbl">Destinatarios farmacia</div>
+      <div id="mo-emails" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div id="mo-myemail" style="font-size:13px;color:var(--muted);padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;"></div>
+    <div id="mo-send-status"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" style="max-width:110px" onclick="closeSend()">Cancelar</button>
+      <button id="btn-do-send" class="btn btn-amber" onclick="doSend()">Crear borradores en Gmail</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR -->
+<div id="mo-add" class="mo" onclick="if(event.target===this)closeAdd()">
+  <div class="mb">
+    <h2>+ Agregar paciente</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="fg"><label>Nombre</label><input type="text" id="m-nom" placeholder="Nombre completo" autocomplete="off"></div>
+      <div class="fg"><label>Documento</label><input type="text" id="m-doc" inputmode="numeric" placeholder="CI / documento" autocomplete="off"></div>
+      <div class="fg"><label>Medicamentos</label><textarea id="m-med" placeholder="Medicamentos indicados"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" style="max-width:110px" onclick="closeAdd()">Cancelar</button>
+      <button class="btn btn-green" onclick="confirmAdd()">✓ Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SK='farmacia_v3';
+let S=load(),rec=null,listening=false;
+
+function load(){
+  try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch(x){}
+  return{pacientes:[],weekStart:wkStart(),emails:['','',''],myEmail:'',adminEmail:'',alertDay:3,alertHour:'13:00'};
+}
+function save(){localStorage.setItem(SK,JSON.stringify(S));}
+function wkStart(){
+  const d=new Date();d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return d.toISOString().split('T')[0];
+}
+
+window.addEventListener('load',()=>{
+  checkWeek();loadCfg();render();initRec();checkAlert();
+  setInterval(checkAlert,30000);
+  if('serviceWorker'in navigator){
+    const sw=`const C='fv3';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll([location.pathname]))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
+    navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
+  }
+});
+
+function checkWeek(){
+  const cw=wkStart();
+  if(S.weekStart!==cw){S.pacientes=[];S.weekStart=cw;save();}
+}
+
+function loadCfg(){
+  if(!S.emails)S.emails=['','',''];
+  document.getElementById('c-e1').value=S.emails[0]||'';
+  document.getElementById('c-e2').value=S.emails[1]||'';
+  document.getElementById('c-e3').value=S.emails[2]||'';
+  document.getElementById('c-me').value=S.myEmail||'';
+  document.getElementById('c-admin').value=S.adminEmail||'';
+  document.getElementById('c-day').value=S.alertDay??3;
+  document.getElementById('c-hour').value=S.alertHour||'13:00';
+}
+
+function saveConfig(){
+  S.emails=[
+    document.getElementById('c-e1').value.trim(),
+    document.getElementById('c-e2').value.trim(),
+    document.getElementById('c-e3').value.trim()
+  ];
+  S.myEmail=document.getElementById('c-me').value.trim();
+  S.adminEmail=document.getElementById('c-admin').value.trim();
+  S.alertDay=parseInt(document.getElementById('c-day').value);
+  S.alertHour=document.getElementById('c-hour').value;
+  save();toast('✓ Guardado');
+}
+
+// TABS
+function goTab(t){
+  ['inicio','envio','config'].forEach(x=>{
+    document.getElementById('pg-'+x).classList.toggle('active',x===t);
+    document.getElementById('t-'+x).classList.toggle('active',x===t);
+  });
+  if(t==='envio')renderEnvio();
+}
+function goInicio(){goTab('inicio');}
+
+// ALERT CHECK
+function checkAlert(){
+  const n=new Date();
+  const day=S.alertDay??3;
+  const [ah,am]=(S.alertHour||'13:00').split(':').map(Number);
+  const isDay=n.getDay()===day;
+  const isHour=n.getHours()===ah;
+  const has=S.pacientes.length>0;
+  document.getElementById('alert-banner').classList.toggle('on',isDay&&isHour&&has);
+  const tb=document.getElementById('t-envio');
+  const wasActive=tb.classList.contains('active');
+  tb.className='tab-btn'+(wasActive?' active':'')+(isDay&&has?' alert':'');
+}
+
+// ENVIO PAGE
+function renderEnvio(){
+  const n=new Date(),day=S.alertDay??3,cnt=S.pacientes.length;
+  const days=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const box=document.getElementById('env-box');
+  if(n.getDay()===day&&cnt>0){
+    box.innerHTML=`<div class="env-alert"><div class="wt">⚠️ Hoy es día de envío</div><div class="ws">${cnt} paciente${cnt!==1?'s':''} registrados esta semana.</div></div>`;
+  } else if(n.getDay()===day){
+    box.innerHTML=`<div class="env-normal"><div class="wt">Hoy es día de envío</div><div class="wd">Sin registros</div></div>`;
+  } else {
+    box.innerHTML=`<div class="env-normal"><div class="wt">Hoy es</div><div class="wd">${days[n.getDay()]}</div><div class="ws">El envío está configurado para los ${days[day]}</div></div>`;
+  }
+  document.getElementById('rv-cnt').textContent=cnt;
+  const rl=document.getElementById('rv-list');
+  rl.innerHTML=cnt?S.pacientes.map(p=>`<div class="ri"><div class="rn">${e(p.nombre)}</div><div class="rd">CI: ${e(p.documento)} · ${e(p.fecha)}</div><div class="rm">${e(p.medicamentos)}</div></div>`).join(''):'<div class="empty"><span class="ico">🗂️</span><span>Sin registros</span></div>';
+  document.getElementById('btn-env').disabled=cnt===0;
+  document.getElementById('send-status').innerHTML='';
+}
+
+// SPEECH
+function initRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){document.getElementById('ns-warn').style.display='block';document.getElementById('mic-btn').disabled=true;return;}
+  rec=new SR();rec.lang='es-UY';rec.continuous=true;rec.interimResults=true;
+  let accumulated='';
+  rec.onresult=ev=>{
+    let interim='';
+    for(let x=ev.resultIndex;x<ev.results.length;x++){
+      if(ev.results[x].isFinal) accumulated+=ev.results[x][0].transcript+' ';
+      else interim+=ev.results[x][0].transcript;
+    }
+    const display=(accumulated+interim).trim();
+    const b=document.getElementById('tx-box');b.textContent=display||'—';b.className=display?'on':'';
+  };
+  rec.onerror=ev=>{stopMic();if(ev.error!=='no-speech'&&ev.error!=='aborted')toast('Error mic: '+ev.error);};
+  rec.onend=()=>{
+    if(listening){
+      // Auto-restart if still in listening mode (Android cuts off after silence)
+      try{rec.start();}catch(x){}
+    }
+  };
+  rec._getAccumulated=()=>accumulated.trim();
+  rec._resetAccumulated=()=>{accumulated='';};
+}
+function toggleMic(){listening?stopMic():startMic();}
+function startMic(){
+  if(!rec)return;
+  listening=true;
+  rec._resetAccumulated();
+  document.getElementById('mic-btn').className='on';
+  document.getElementById('mic-btn').textContent='⏹';
+  document.getElementById('mic-lbl').textContent='Escuchando… apretá ⏹ para terminar';
+  document.getElementById('mic-lbl').className='on';
+  document.getElementById('tx-box').textContent='—';
+  document.getElementById('tx-box').className='';
+  document.getElementById('pc').className='';
+  rec.start();
+}
+function stopMic(){
+  listening=false;
+  document.getElementById('mic-btn').className='';
+  document.getElementById('mic-btn').textContent='🎤';
+  document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
+  document.getElementById('mic-lbl').className='';
+  try{rec.stop();}catch(x){}
+  const final=rec._getAccumulated();
+  if(final) parseTx(final);
+}
+
+function parseTx(text){
+  let nom='',doc='',med='';
+  const dm=text.match(/(?:documento|cédula|ci|número|cedula)[:\s]+([0-9][\d.\s-]{5,14})/i);
+  if(dm){doc=dm[1].replace(/[\s.\-]/g,'').trim();nom=cn(text.slice(0,dm.index).trim());med=cm(text.slice(dm.index+dm[0].length).trim());}
+  else{const nm=text.match(/\b(\d{6,9})\b/);if(nm){doc=nm[1];const i=text.indexOf(nm[1]);nom=cn(text.slice(0,i).trim());med=cm(text.slice(i+nm[1].length).trim());}else{const w=text.split(' ');nom=w.slice(0,Math.min(4,w.length)).join(' ');med=w.slice(Math.min(4,w.length)).join(' ');}}
+  document.getElementById('e-nom').value=cap(nom);
+  document.getElementById('e-doc').value=doc;
+  document.getElementById('e-med').value=med;
+  document.getElementById('pc').className='on';
+}
+function cn(s){return s.replace(/[,;:\.]+$/,'').trim();}
+function cm(s){return s.replace(/^[,;:\s]+/,'').trim();}
+function cap(s){return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());}
+function cancelP(){document.getElementById('pc').className='';document.getElementById('tx-box').textContent='—';document.getElementById('tx-box').className='';}
+function confirmP(){
+  const nom=document.getElementById('e-nom').value.trim(),doc=document.getElementById('e-doc').value.trim(),med=document.getElementById('e-med').value.trim();
+  if(!nom){toast('Falta el nombre');return;}if(!med){toast('Faltan los medicamentos');return;}
+  addP(nom,doc,med);document.getElementById('pc').className='';document.getElementById('tx-box').textContent='—';document.getElementById('tx-box').className='';
+}
+function openAddModal(){document.getElementById('m-nom').value='';document.getElementById('m-doc').value='';document.getElementById('m-med').value='';document.getElementById('mo-add').classList.add('on');}
+function closeAdd(){document.getElementById('mo-add').classList.remove('on');}
+function confirmAdd(){
+  const nom=document.getElementById('m-nom').value.trim(),doc=document.getElementById('m-doc').value.trim(),med=document.getElementById('m-med').value.trim();
+  if(!nom){toast('Falta el nombre');return;}if(!med){toast('Faltan los medicamentos');return;}
+  addP(nom,doc,med);closeAdd();
+}
+function addP(nom,doc,med){
+  S.pacientes.push({id:Date.now(),nombre:nom,documento:doc||'—',medicamentos:med,fecha:new Date().toLocaleDateString('es-UY')});
+  save();render();toast('✓ Paciente agregado');
+}
+function delP(id){S.pacientes=S.pacientes.filter(p=>p.id!==id);save();render();}
+
+function render(){
+  const d=new Date(S.weekStart),en=new Date(d);en.setDate(en.getDate()+6);
+  const f=x=>x.toLocaleDateString('es-UY',{day:'numeric',month:'short'});
+  document.getElementById('week-badge').textContent=f(d)+'–'+f(en);
+  const cnt=S.pacientes.length;
+  document.getElementById('cnt').textContent=cnt;
+  const l=document.getElementById('p-list');
+  l.innerHTML=cnt?S.pacientes.map(p=>`<div class="pi"><div class="pi-info"><div class="pi-name">${e(p.nombre)}</div><div class="pi-doc">CI: ${e(p.documento)} · ${e(p.fecha)}</div><div class="pi-meds">${e(p.medicamentos)}</div></div><button class="xbtn" onclick="delP(${p.id})">✕</button></div>`).join(''):'<div class="empty"><span class="ico">🗂️</span><span>Sin registros aún</span></div>';
+}
+function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── FARMACO SUMMARY ──────────────────────────────────────────────────────────
+function buildSummary(){
+  // Groups by first word (generic name), separates suspensión
+  const map={};
+  S.pacientes.forEach(p=>{
+    const meds=p.medicamentos.split(/[,;\/\n]+/);
+    meds.forEach(m=>{
+      const clean=m.trim().toLowerCase();
+      if(!clean)return;
+      const isSusp=/suspen/i.test(clean);
+      // first word = generic name
+      const firstWord=clean.replace(/[^a-záéíóúüñ\s]/gi,' ').trim().split(/\s+/)[0];
+      if(!firstWord)return;
+      const key=isSusp?firstWord+' (susp)':firstWord;
+      map[key]=(map[key]||0)+1;
+    });
+  });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
+
+// ── HTML BUILDERS ────────────────────────────────────────────────────────────
+function dateRange(){
+  const d=new Date(S.weekStart),en=new Date(d);en.setDate(en.getDate()+6);
+  const f=x=>x.toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'});
+  return f(d)+' al '+f(en);
+}
+
+function buildFarmaciaHtml(){
+  const rows=S.pacientes.map((p,i)=>`
+    <tr style="background:${i%2===0?'#f8f9fa':'#ffffff'}">
+      <td style="padding:10px 14px;border-bottom:1px solid #dee2e6;font-weight:600;">${p.nombre}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #dee2e6;color:#212529;">${p.medicamentos}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<p style="color:#495057;margin-bottom:20px;">Buenos días,</p>
+<p style="color:#495057;margin-bottom:24px;">Envío la lista de usuarios con ingresos de fecha <strong>${dateRange()}</strong>.</p>
+<table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;">
+  <thead>
+    <tr style="background:#343a40;color:#fff;">
+      <th style="padding:12px 14px;text-align:left;font-weight:600;">Nombre</th>
+      <th style="padding:12px 14px;text-align:left;font-weight:600;">Documento</th>
+      <th style="padding:12px 14px;text-align:left;font-weight:600;">Medicamentos</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<p style="color:#6c757d;font-size:13px;margin-top:24px;">Total: <strong>${S.pacientes.length} usuario${S.pacientes.length!==1?'s':''}.</strong></p>
+<p style="color:#6c757d;font-size:13px;margin-top:4px;">Saludos.</p>
+</body></html>`;
+}
+
+function buildMiCopiaHtml(){
+  const summary=buildSummary();
+  const sumRows=summary.map((([k,v])=>`
+    <tr>
+      <td style="padding:8px 14px;border-bottom:1px solid #dee2e6;text-transform:capitalize;">${k}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #dee2e6;text-align:center;font-weight:700;color:#212529;">${v}</td>
+    </tr>`)).join('');
+  const rows=S.pacientes.map((p,i)=>`
+    <tr style="background:${i%2===0?'#f8f9fa':'#ffffff'}">
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-weight:600;">${p.nombre}</td>
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;">${p.medicamentos}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<h2 style="color:#212529;font-size:16px;margin-bottom:4px;">Copia — Medicación semanal</h2>
+<p style="color:#6c757d;font-size:13px;margin-bottom:24px;">${dateRange()} · ${S.pacientes.length} usuario${S.pacientes.length!==1?'s':''}</p>
+
+<h3 style="font-size:14px;color:#495057;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Resumen por fármaco</h3>
+<table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;margin-bottom:28px;">
+  <thead>
+    <tr style="background:#343a40;color:#fff;">
+      <th style="padding:10px 14px;text-align:left;">Fármaco</th>
+      <th style="padding:10px 14px;text-align:center;width:80px;">Total</th>
+    </tr>
+  </thead>
+  <tbody>${sumRows}</tbody>
+</table>
+
+<h3 style="font-size:14px;color:#495057;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Detalle por paciente</h3>
+<table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;">
+  <thead>
+    <tr style="background:#343a40;color:#fff;">
+      <th style="padding:10px 14px;text-align:left;">Nombre</th>
+      <th style="padding:10px 14px;text-align:left;">Documento</th>
+      <th style="padding:10px 14px;text-align:left;">Medicamentos</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+}
+
+function buildAdminHtml(){
+  const summary=buildSummary();
+  const sumRows=summary.map(([k,v])=>`
+    <tr>
+      <td style="padding:8px 14px;border-bottom:1px solid #dee2e6;text-transform:capitalize;">${k}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #dee2e6;text-align:center;font-weight:700;color:#212529;">${v}</td>
+    </tr>`).join('');
+  const rows=S.pacientes.map((p,i)=>`
+    <tr style="background:${i%2===0?'#f8f9fa':'#ffffff'}">
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-weight:600;">${p.nombre}</td>
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
+      <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;">${p.medicamentos}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<p style="color:#495057;font-size:15px;font-weight:600;margin-bottom:20px;">Favor imprimir y entregar a Nurse.</p>
+<h2 style="color:#212529;font-size:15px;margin-bottom:4px;">Medicación semanal</h2>
+<p style="color:#6c757d;font-size:13px;margin-bottom:24px;">${dateRange()} · ${S.pacientes.length} usuario${S.pacientes.length!==1?'s':''}</p>
+
+<h3 style="font-size:13px;color:#495057;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Resumen por fármaco</h3>
+<table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;margin-bottom:28px;">
+  <thead><tr style="background:#343a40;color:#fff;">
+    <th style="padding:10px 14px;text-align:left;">Fármaco</th>
+    <th style="padding:10px 14px;text-align:center;width:80px;">Total</th>
+  </tr></thead>
+  <tbody>${sumRows}</tbody>
+</table>
+
+<h3 style="font-size:13px;color:#495057;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Detalle por paciente</h3>
+<table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;">
+  <thead><tr style="background:#343a40;color:#fff;">
+    <th style="padding:10px 14px;text-align:left;">Nombre</th>
+    <th style="padding:10px 14px;text-align:left;">Documento</th>
+    <th style="padding:10px 14px;text-align:left;">Medicamentos</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+}
+
+// ── SEND MODAL ───────────────────────────────────────────────────────────────
+function openSendModal(){
+  const valid=(S.emails||[]).filter(x=>x&&x.includes('@'));
+  if(!valid.length){toast('Configurá al menos un email en Config');goTab('config');return;}
+  const c=document.getElementById('mo-emails');
+  c.innerHTML=(S.emails||[]).filter(x=>x).map(em=>`<div class="em-row"><span style="font-size:13px">📧</span><span class="ad">${e(em)}</span></div>`).join('');
+  const me=S.myEmail;
+  const admin=S.adminEmail;
+  document.getElementById('mo-myemail').innerHTML=
+    (me?`<div>📋 Tu copia: ${e(me)}</div>`:'<div style="color:var(--red)">⚠️ Sin email propio (no recibirás copia)</div>')+
+    (admin?`<div style="margin-top:4px">🏥 Administración: ${e(admin)}</div>`:'<div style="margin-top:4px;color:var(--muted)">— Sin email de administración</div>');
+  document.getElementById('mo-send-status').innerHTML='';
+  document.getElementById('btn-do-send').disabled=false;
+  document.getElementById('btn-do-send').textContent='Crear borradores en Gmail';
+  document.getElementById('mo-send').classList.add('on');
+}
+function closeSend(){document.getElementById('mo-send').classList.remove('on');}
+
+async function doSend(){
+  const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
+  if(!farmEmails.length){toast('Sin emails configurados');return;}
+
+  const btn=document.getElementById('btn-do-send');
+  const status=document.getElementById('mo-send-status');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> Creando borradores…';
+  status.innerHTML='';
+
+  const subject=`Medicación semanal – ${dateRange()}`;
+  const farmHtml=buildFarmaciaHtml();
+  const copiaHtml=buildMiCopiaHtml();
+  const adminHtml=buildAdminHtml();
+
+  let ok=0,errors=[];
+
+  // Draft for farmacia
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:1000,
+        messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
+- to: ${JSON.stringify(farmEmails)}
+- subject: "${subject}"
+- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${farmHtml}
+Call the Gmail create_draft tool now.`}],
+        mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
+      })
+    });
+    const data=await resp.json();
+    // Check if draft was created
+    const hasResult=data.content&&data.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
+    if(hasResult)ok++;
+    else errors.push('farmacia');
+  } catch(x){ errors.push('farmacia'); }
+
+  // Draft for my copy
+  if(S.myEmail&&S.myEmail.includes('@')){
+    try {
+      const resp2 = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
+- to: ["${S.myEmail}"]
+- subject: "[COPIA] ${subject}"
+- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${copiaHtml}
+Call the Gmail create_draft tool now.`}],
+          mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
+        })
+      });
+      const data2=await resp2.json();
+      const hasResult2=data2.content&&data2.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
+      if(hasResult2)ok++;
+      else errors.push('copia');
+    } catch(x){ errors.push('copia'); }
+  }
+
+  // Draft for admin
+  if(S.adminEmail&&S.adminEmail.includes('@')){
+    try {
+      const resp3 = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
+- to: ["${S.adminEmail}"]
+- subject: "[ADMIN] ${subject}"
+- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${adminHtml}
+Call the Gmail create_draft tool now.`}],
+          mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
+        })
+      });
+      const data3=await resp3.json();
+      const hasResult3=data3.content&&data3.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
+      if(hasResult3)ok++;
+      else errors.push('administración');
+    } catch(x){ errors.push('administración'); }
+  }
+
+  btn.disabled=false;
+  btn.textContent='Crear borradores en Gmail';
+
+  if(errors.length===0){
+    status.innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores creados. Abrí Gmail y enviá.</div>`;
+    closeSend();
+    document.getElementById('send-status').innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores listos en Gmail — ${new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    toast('✓ Borradores creados en Gmail');
+  } else {
+    status.innerHTML=`<div class="sending-state" style="border-color:var(--red);color:var(--red)">Error al crear borrador de: ${errors.join(', ')}. Verificá la configuración.</div>`;
+  }
+}
+
+// CONFIG
+function clearAll(){if(!confirm('¿Borrar todos los registros?'))return;S.pacientes=[];save();render();toast('Lista borrada');}
+
+// TOAST
+let tt;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.className='on';clearTimeout(tt);tt=setTimeout(()=>el.className='',2800);}
+</script>
+</body>
+</html>
