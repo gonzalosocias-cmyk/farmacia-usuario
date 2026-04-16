@@ -395,24 +395,35 @@ function renderEnvio(){
 function initRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){document.getElementById('ns-warn').style.display='block';document.getElementById('mic-btn').disabled=true;return;}
-  rec=new SR();rec.lang='es-UY';rec.continuous=false;rec.interimResults=true;
+  rec=new SR();rec.lang='es-UY';rec.continuous=true;rec.interimResults=true;
+  let accumulated='';
   rec.onresult=ev=>{
-    let i='',f='';
-    for(let x=ev.resultIndex;x<ev.results.length;x++){if(ev.results[x].isFinal)f+=ev.results[x][0].transcript;else i+=ev.results[x][0].transcript;}
-    const t=(f||i).trim();
-    const b=document.getElementById('tx-box');b.textContent=t||'—';b.className=t?'on':'';
-    if(f){stopMic();parseTx(f.trim());}
+    let interim='';
+    for(let x=ev.resultIndex;x<ev.results.length;x++){
+      if(ev.results[x].isFinal) accumulated+=ev.results[x][0].transcript+' ';
+      else interim+=ev.results[x][0].transcript;
+    }
+    const display=(accumulated+interim).trim();
+    const b=document.getElementById('tx-box');b.textContent=display||'—';b.className=display?'on':'';
   };
   rec.onerror=ev=>{stopMic();if(ev.error!=='no-speech'&&ev.error!=='aborted')toast('Error mic: '+ev.error);};
-  rec.onend=()=>{if(listening)stopMic();};
+  rec.onend=()=>{
+    if(listening){
+      // Auto-restart if still in listening mode (Android cuts off after silence)
+      try{rec.start();}catch(x){}
+    }
+  };
+  rec._getAccumulated=()=>accumulated.trim();
+  rec._resetAccumulated=()=>{accumulated='';};
 }
 function toggleMic(){listening?stopMic():startMic();}
 function startMic(){
   if(!rec)return;
   listening=true;
+  rec._resetAccumulated();
   document.getElementById('mic-btn').className='on';
   document.getElementById('mic-btn').textContent='⏹';
-  document.getElementById('mic-lbl').textContent='Escuchando…';
+  document.getElementById('mic-lbl').textContent='Escuchando… apretá ⏹ para terminar';
   document.getElementById('mic-lbl').className='on';
   document.getElementById('tx-box').textContent='—';
   document.getElementById('tx-box').className='';
@@ -426,6 +437,8 @@ function stopMic(){
   document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
   document.getElementById('mic-lbl').className='';
   try{rec.stop();}catch(x){}
+  const final=rec._getAccumulated();
+  if(final) parseTx(final);
 }
 
 function parseTx(text){
