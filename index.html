@@ -160,6 +160,10 @@ header h1{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;c
     <div class="lbl">Transcripción</div>
     <div id="tx-box">—</div>
   </div>
+  <div id="tx-actions" style="display:none;gap:8px" class="btn-row">
+    <button class="btn btn-ghost" style="max-width:110px;padding:10px 0;font-size:13px" onclick="clearDictado()">✕ Borrar</button>
+    <button class="btn btn-green" style="padding:10px 0;font-size:13px" onclick="processDictado()">✓ Procesar texto</button>
+  </div>
   <div class="hint"><strong>Ejemplo:</strong> "Juan Pérez, documento 12345678, omeprazol 20mg uno por día y amoxicilina suspensión 250mg"</div>
   <div id="pc">
     <div class="lbl">Confirmar registro</div>
@@ -399,55 +403,62 @@ function initRec(){
   if(!SR){document.getElementById('ns-warn').style.display='block';document.getElementById('mic-btn').disabled=true;return;}
   let accumulated='';
 
-  function makeRec(){
-    const r=new SR();
-    r.lang='es-UY';r.continuous=true;r.interimResults=true;
-    r.onresult=ev=>{
-      let interim='';
-      for(let x=ev.resultIndex;x<ev.results.length;x++){
-        if(ev.results[x].isFinal) accumulated+=ev.results[x][0].transcript+' ';
-        else interim+=ev.results[x][0].transcript;
-      }
-      const display=(accumulated+interim).trim();
-      const b=document.getElementById('tx-box');b.textContent=display||'—';b.className=display?'on':'';
-    };
-    r.onerror=ev=>{
-      if(ev.error==='no-speech'||ev.error==='aborted') return;
-      stopMic();toast('Error mic: '+ev.error);
-    };
-    r.onend=()=>{
-      if(listening){ try{rec=makeRec();rec.start();}catch(x){} }
-    };
-    return r;
-  }
-  rec=makeRec();
+  rec=new SR();rec.lang='es-UY';rec.continuous=false;rec.interimResults=true;
+
+  rec.onresult=ev=>{
+    let interim='',final='';
+    for(let x=ev.resultIndex;x<ev.results.length;x++){
+      if(ev.results[x].isFinal) final+=ev.results[x][0].transcript;
+      else interim+=ev.results[x][0].transcript;
+    }
+    const display=(accumulated+(final||interim)).trim();
+    const b=document.getElementById('tx-box');b.textContent=display||'—';b.className=display?'on':'';
+    if(final){
+      accumulated+=(accumulated?' ':'')+final.trim();
+      document.getElementById('tx-actions').style.display='flex';
+    }
+  };
+  rec.onerror=ev=>{
+    stopMic();
+    if(ev.error!=='no-speech'&&ev.error!=='aborted') toast('Error mic: '+ev.error);
+  };
+  rec.onend=()=>{ stopMic(); };
   rec._getAccumulated=()=>accumulated.trim();
   rec._resetAccumulated=()=>{accumulated='';};
+}
+function processDictado(){
+  const txt=rec._getAccumulated();
+  if(!txt)return;
+  parseTx(txt);
+  document.getElementById('tx-actions').style.display='none';
+}
+function clearDictado(){
+  rec._resetAccumulated();
+  document.getElementById('tx-box').textContent='—';
+  document.getElementById('tx-box').className='';
+  document.getElementById('tx-actions').style.display='none';
+  document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
+  document.getElementById('pc').className='';
 }
 function toggleMic(){listening?stopMic():startMic();}
 function startMic(){
   if(!rec)return;
+  if(listening)return;
   listening=true;
-  rec._resetAccumulated();
   document.getElementById('mic-btn').className='on';
   document.getElementById('mic-btn').textContent='⏹';
-  document.getElementById('mic-lbl').textContent='Escuchando… apretá ⏹ para terminar';
+  document.getElementById('mic-lbl').textContent='Escuchando… pausá para continuar';
   document.getElementById('mic-lbl').className='on';
-  document.getElementById('tx-box').textContent='—';
-  document.getElementById('tx-box').className='';
-  document.getElementById('pc').className='';
-  rec.start();
+  try{rec.start();}catch(x){}
 }
 function stopMic(){
   listening=false;
   document.getElementById('mic-btn').className='';
   document.getElementById('mic-btn').textContent='🎤';
-  document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
+  const acc=rec._getAccumulated();
+  document.getElementById('mic-lbl').textContent=acc?'Apretá para agregar más, o confirmá abajo':'Presioná para dictar un paciente';
   document.getElementById('mic-lbl').className='';
   try{rec.stop();}catch(x){}
-  const final=rec._getAccumulated();
-  rec._resetAccumulated();
-  if(final) parseTx(final);
 }
 
 function parseTx(text){
@@ -463,11 +474,24 @@ function parseTx(text){
 function cn(s){return s.replace(/[,;:\.]+$/,'').trim();}
 function cm(s){return s.replace(/^[,;:\s]+/,'').trim();}
 function cap(s){return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());}
-function cancelP(){document.getElementById('pc').className='';document.getElementById('tx-box').textContent='—';document.getElementById('tx-box').className='';}
+function cancelP(){
+  document.getElementById('pc').className='';
+  document.getElementById('tx-box').textContent='—';
+  document.getElementById('tx-box').className='';
+  document.getElementById('tx-actions').style.display='none';
+  rec._resetAccumulated();
+  document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
+}
 function confirmP(){
   const nom=document.getElementById('e-nom').value.trim(),doc=document.getElementById('e-doc').value.trim(),med=document.getElementById('e-med').value.trim();
   if(!nom){toast('Falta el nombre');return;}if(!med){toast('Faltan los medicamentos');return;}
-  addP(nom,doc,med);document.getElementById('pc').className='';document.getElementById('tx-box').textContent='—';document.getElementById('tx-box').className='';
+  addP(nom,doc,med);
+  document.getElementById('pc').className='';
+  document.getElementById('tx-box').textContent='—';
+  document.getElementById('tx-box').className='';
+  document.getElementById('tx-actions').style.display='none';
+  rec._resetAccumulated();
+  document.getElementById('mic-lbl').textContent='Presioná para dictar un paciente';
 }
 function openAddModal(){document.getElementById('m-nom').value='';document.getElementById('m-doc').value='';document.getElementById('m-med').value='';document.getElementById('mo-add').classList.add('on');}
 function closeAdd(){document.getElementById('mo-add').classList.remove('on');}
