@@ -1,0 +1,18 @@
+{
+  "name": "Farmacia",
+  "short_name": "Farmacia",
+  "description": "Registro de medicación semanal",
+  "start_url": "/farmacia-usuario/",
+  "scope": "/farmacia-usuario/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%230d1117'/><text y='145' x='20' font-size='150'>💊</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
