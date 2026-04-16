@@ -204,6 +204,15 @@ header h1{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;c
     <button class="btn btn-blue" onclick="goInicio()">👁 Revisar lista</button>
     <button id="btn-env" class="btn btn-amber" onclick="openSendModal()" disabled>✉️ Preparar envío</button>
   </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="lbl" style="margin-bottom:0">Envío rápido</div>
+    <div class="btn-row">
+      <button id="btn-send-all" class="btn btn-green" style="font-size:13px" onclick="quickSend('all')" disabled>⚡ Enviar ahora a todos</button>
+    </div>
+    <div class="btn-row">
+      <button id="btn-send-me" class="btn btn-ghost" style="font-size:13px;border:1px solid var(--green);color:var(--green)" onclick="quickSend('me')" disabled>📋 Enviar ahora solo a mí</button>
+    </div>
+  </div>
 </div>
 
 <!-- PAGE CONFIG -->
@@ -394,6 +403,8 @@ function renderEnvio(){
   const rl=document.getElementById('rv-list');
   rl.innerHTML=cnt?S.pacientes.map(p=>`<div class="ri"><div class="rn">${e(p.nombre)}</div><div class="rd">CI: ${e(p.documento)} · ${e(p.fecha)}</div><div class="rm">${e(p.medicamentos)}</div></div>`).join(''):'<div class="empty"><span class="ico">🗂️</span><span>Sin registros</span></div>';
   document.getElementById('btn-env').disabled=cnt===0;
+  document.getElementById('btn-send-all').disabled=cnt===0;
+  document.getElementById('btn-send-me').disabled=cnt===0;
   document.getElementById('send-status').innerHTML='';
 }
 
@@ -414,7 +425,7 @@ function initRec(){
     const display=(accumulated+(final||interim)).trim();
     const b=document.getElementById('tx-box');b.textContent=display||'—';b.className=display?'on':'';
     if(final){
-      accumulated+=(accumulated?' ':'')+final.trim();
+      accumulated=(accumulated?accumulated.trimEnd()+' ':'')+final.trim();
       document.getElementById('tx-actions').style.display='flex';
     }
   };
@@ -648,6 +659,62 @@ function buildAdminHtml(){
   <tbody>${rows}</tbody>
 </table>
 </body></html>`;
+}
+
+async function quickSend(mode){
+  if(!S.pacientes.length){toast('Sin registros');return;}
+  if(mode==='all'){
+    const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
+    if(!farmEmails.length){toast('Configurá emails de farmacia en Config');goTab('config');return;}
+  }
+  if(mode==='me'&&(!S.myEmail||!S.myEmail.includes('@'))){
+    toast('Configurá tu email en Config');goTab('config');return;
+  }
+
+  const btn=mode==='all'?document.getElementById('btn-send-all'):document.getElementById('btn-send-me');
+  const orig=btn.textContent;
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span>';
+
+  const subject=`Medicación semanal – ${dateRange()}`;
+  const errors=[];
+
+  if(mode==='all'){
+    // Farmacia
+    const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ${JSON.stringify(farmEmails)}, subject: "${subject}", htmlBody: ${buildFarmaciaHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
+      const d=await r.json();
+      if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('farmacia');
+    }catch(x){errors.push('farmacia');}
+    // Admin
+    if(S.adminEmail&&S.adminEmail.includes('@')){
+      try{
+        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ["${S.adminEmail}"], subject: "[ADMIN] ${subject}", htmlBody: ${buildAdminHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
+        const d=await r.json();
+        if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('administración');
+      }catch(x){errors.push('administración');}
+    }
+  }
+
+  // My copy (both modes)
+  if(S.myEmail&&S.myEmail.includes('@')){
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ["${S.myEmail}"], subject: "[COPIA] ${subject}", htmlBody: ${buildMiCopiaHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
+      const d=await r.json();
+      if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('copia');
+    }catch(x){errors.push('copia');}
+  }
+
+  btn.disabled=false;
+  btn.textContent=orig;
+
+  if(!errors.length){
+    document.getElementById('send-status').innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores listos en Gmail — ${new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    toast('✓ Borradores creados en Gmail');
+  } else {
+    toast('Error: '+errors.join(', '));
+  }
 }
 
 // ── SEND MODAL ───────────────────────────────────────────────────────────────
