@@ -10,6 +10,7 @@
 <title>Farmacia</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
 
@@ -278,7 +279,7 @@ header h1{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;c
 <div id="mo-send" class="mo" onclick="if(event.target===this)closeSend()">
   <div class="mb">
     <h2>✉️ Preparar borradores</h2>
-    <p>Se crearán borradores en tu Gmail: farmacia, tu copia (con resumen) y administración. Solo tenés que abrirlos y apretar Enviar.</p>
+    <p>Se enviarán los mails directamente a todos los destinatarios configurados.</p>
     <div style="display:flex;flex-direction:column;gap:6px">
       <div class="lbl">Destinatarios farmacia</div>
       <div id="mo-emails" style="display:flex;flex-direction:column;gap:6px"></div>
@@ -326,6 +327,7 @@ function wkStart(){
 }
 
 window.addEventListener('load',()=>{
+  emailjs.init('kTpTDm3Tec9cCvTmT');
   checkWeek();loadCfg();render();initRec();checkAlert();
   setInterval(checkAlert,30000);
   if('serviceWorker'in navigator){
@@ -661,61 +663,73 @@ function buildAdminHtml(){
 </body></html>`;
 }
 
-async function quickSend(mode){
-  if(!S.pacientes.length){toast('Sin registros');return;}
-  if(mode==='all'){
-    const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
-    if(!farmEmails.length){toast('Configurá emails de farmacia en Config');goTab('config');return;}
-  }
-  if(mode==='me'&&(!S.myEmail||!S.myEmail.includes('@'))){
-    toast('Configurá tu email en Config');goTab('config');return;
-  }
+const EJS_SVC='service_9g7c21a';
+const EJS_TPL='template_yuf2lye';
 
-  const btn=mode==='all'?document.getElementById('btn-send-all'):document.getElementById('btn-send-me');
-  const orig=btn.textContent;
-  btn.disabled=true;
-  btn.innerHTML='<span class="spinner"></span>';
+async function ejsSend(to_email, subject, html_body){
+  return emailjs.send(EJS_SVC, EJS_TPL, {to_email, subject, html_body});
+}
+
+async function sendAll(mode){
+  if(!S.pacientes.length){toast('Sin registros');return;}
+  const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
+  if(mode==='all'&&!farmEmails.length){toast('Configurá emails de farmacia en Config');goTab('config');return;}
+  if(mode==='me'&&(!S.myEmail||!S.myEmail.includes('@'))){toast('Configurá tu email en Config');goTab('config');return;}
+
+  // Identify buttons to disable
+  const btnAll=document.getElementById('btn-send-all');
+  const btnMe=document.getElementById('btn-send-me');
+  const btnModal=document.getElementById('btn-do-send');
+  [btnAll,btnMe,btnModal].forEach(b=>{if(b){b.disabled=true;}});
+  const origAll=btnAll?.textContent, origMe=btnMe?.textContent;
+  if(btnAll) btnAll.innerHTML='<span class="spinner"></span>';
+  if(btnMe) btnMe.innerHTML='<span class="spinner"></span>';
+  if(btnModal) btnModal.innerHTML='<span class="spinner"></span> Enviando…';
 
   const subject=`Medicación semanal – ${dateRange()}`;
   const errors=[];
+  const sends=[];
 
   if(mode==='all'){
-    // Farmacia
-    const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ${JSON.stringify(farmEmails)}, subject: "${subject}", htmlBody: ${buildFarmaciaHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
-      const d=await r.json();
-      if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('farmacia');
-    }catch(x){errors.push('farmacia');}
+    // One send per farmacia email
+    farmEmails.forEach(em=>{
+      sends.push(ejsSend(em, subject, buildFarmaciaHtml()).catch(()=>errors.push(em)));
+    });
     // Admin
     if(S.adminEmail&&S.adminEmail.includes('@')){
-      try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ["${S.adminEmail}"], subject: "[ADMIN] ${subject}", htmlBody: ${buildAdminHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
-        const d=await r.json();
-        if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('administración');
-      }catch(x){errors.push('administración');}
+      sends.push(ejsSend(S.adminEmail, `[ADMIN] ${subject}`, buildAdminHtml()).catch(()=>errors.push('administración')));
     }
   }
-
-  // My copy (both modes)
+  // My copy always
   if(S.myEmail&&S.myEmail.includes('@')){
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Create a Gmail draft: to: ["${S.myEmail}"], subject: "[COPIA] ${subject}", htmlBody: ${buildMiCopiaHtml()}`}],mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]})});
-      const d=await r.json();
-      if(!d.content?.some(b=>b.type==='mcp_tool_result'||b.type==='text'))errors.push('copia');
-    }catch(x){errors.push('copia');}
+    sends.push(ejsSend(S.myEmail, `[COPIA] ${subject}`, buildMiCopiaHtml()).catch(()=>errors.push('copia')));
   }
 
-  btn.disabled=false;
-  btn.textContent=orig;
+  await Promise.all(sends);
+
+  [btnAll,btnMe,btnModal].forEach(b=>{if(b)b.disabled=false;});
+  if(btnAll) btnAll.textContent=origAll;
+  if(btnMe) btnMe.textContent=origMe;
+  if(btnModal) btnModal.textContent='Enviar';
+
+  const statusEl=document.getElementById('send-status');
+  const modalStatus=document.getElementById('mo-send-status');
 
   if(!errors.length){
-    document.getElementById('send-status').innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores listos en Gmail — ${new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>`;
-    toast('✓ Borradores creados en Gmail');
+    const msg=`✓ Enviado — ${new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}`;
+    if(statusEl) statusEl.innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">${msg}</div>`;
+    if(modalStatus) modalStatus.innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">${msg}</div>`;
+    closeSend();
+    toast('✓ Mails enviados');
   } else {
+    const errMsg=`Error enviando a: ${errors.join(', ')}`;
+    if(statusEl) statusEl.innerHTML=`<div class="sending-state" style="border-color:var(--red);color:var(--red)">${errMsg}</div>`;
+    if(modalStatus) modalStatus.innerHTML=`<div class="sending-state" style="border-color:var(--red);color:var(--red)">${errMsg}</div>`;
     toast('Error: '+errors.join(', '));
   }
 }
+
+function quickSend(mode){ sendAll(mode); }
 
 // ── SEND MODAL ───────────────────────────────────────────────────────────────
 function openSendModal(){
@@ -723,118 +737,17 @@ function openSendModal(){
   if(!valid.length){toast('Configurá al menos un email en Config');goTab('config');return;}
   const c=document.getElementById('mo-emails');
   c.innerHTML=(S.emails||[]).filter(x=>x).map(em=>`<div class="em-row"><span style="font-size:13px">📧</span><span class="ad">${e(em)}</span></div>`).join('');
-  const me=S.myEmail;
-  const admin=S.adminEmail;
+  const me=S.myEmail, admin=S.adminEmail;
   document.getElementById('mo-myemail').innerHTML=
-    (me?`<div>📋 Tu copia: ${e(me)}</div>`:'<div style="color:var(--red)">⚠️ Sin email propio (no recibirás copia)</div>')+
-    (admin?`<div style="margin-top:4px">🏥 Administración: ${e(admin)}</div>`:'<div style="margin-top:4px;color:var(--muted)">— Sin email de administración</div>');
+    (me?`<div>📋 Tu copia: ${e(me)}</div>`:'<div style="color:var(--red)">⚠️ Sin email propio</div>')+
+    (admin?`<div style="margin-top:4px">🏥 Administración: ${e(admin)}</div>`:'');
   document.getElementById('mo-send-status').innerHTML='';
   document.getElementById('btn-do-send').disabled=false;
-  document.getElementById('btn-do-send').textContent='Crear borradores en Gmail';
+  document.getElementById('btn-do-send').textContent='Enviar';
   document.getElementById('mo-send').classList.add('on');
 }
 function closeSend(){document.getElementById('mo-send').classList.remove('on');}
-
-async function doSend(){
-  const farmEmails=(S.emails||[]).filter(x=>x&&x.includes('@'));
-  if(!farmEmails.length){toast('Sin emails configurados');return;}
-
-  const btn=document.getElementById('btn-do-send');
-  const status=document.getElementById('mo-send-status');
-  btn.disabled=true;
-  btn.innerHTML='<span class="spinner"></span> Creando borradores…';
-  status.innerHTML='';
-
-  const subject=`Medicación semanal – ${dateRange()}`;
-  const farmHtml=buildFarmaciaHtml();
-  const copiaHtml=buildMiCopiaHtml();
-  const adminHtml=buildAdminHtml();
-
-  let ok=0,errors=[];
-
-  // Draft for farmacia
-  try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
-        messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
-- to: ${JSON.stringify(farmEmails)}
-- subject: "${subject}"
-- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${farmHtml}
-Call the Gmail create_draft tool now.`}],
-        mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
-      })
-    });
-    const data=await resp.json();
-    // Check if draft was created
-    const hasResult=data.content&&data.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
-    if(hasResult)ok++;
-    else errors.push('farmacia');
-  } catch(x){ errors.push('farmacia'); }
-
-  // Draft for my copy
-  if(S.myEmail&&S.myEmail.includes('@')){
-    try {
-      const resp2 = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
-- to: ["${S.myEmail}"]
-- subject: "[COPIA] ${subject}"
-- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${copiaHtml}
-Call the Gmail create_draft tool now.`}],
-          mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
-        })
-      });
-      const data2=await resp2.json();
-      const hasResult2=data2.content&&data2.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
-      if(hasResult2)ok++;
-      else errors.push('copia');
-    } catch(x){ errors.push('copia'); }
-  }
-
-  // Draft for admin
-  if(S.adminEmail&&S.adminEmail.includes('@')){
-    try {
-      const resp3 = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          messages:[{role:"user",content:`Create a Gmail draft using the Gmail MCP tool with these exact parameters:
-- to: ["${S.adminEmail}"]
-- subject: "[ADMIN] ${subject}"
-- htmlBody: the following HTML (use it verbatim as htmlBody parameter): ${adminHtml}
-Call the Gmail create_draft tool now.`}],
-          mcp_servers:[{type:"url",url:"https://gmailmcp.googleapis.com/mcp/v1",name:"gmail-mcp"}]
-        })
-      });
-      const data3=await resp3.json();
-      const hasResult3=data3.content&&data3.content.some(b=>b.type==='mcp_tool_result'||b.type==='text');
-      if(hasResult3)ok++;
-      else errors.push('administración');
-    } catch(x){ errors.push('administración'); }
-  }
-
-  btn.disabled=false;
-  btn.textContent='Crear borradores en Gmail';
-
-  if(errors.length===0){
-    status.innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores creados. Abrí Gmail y enviá.</div>`;
-    closeSend();
-    document.getElementById('send-status').innerHTML=`<div class="sending-state" style="border-color:var(--green);color:var(--green)">✓ Borradores listos en Gmail — ${new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>`;
-    toast('✓ Borradores creados en Gmail');
-  } else {
-    status.innerHTML=`<div class="sending-state" style="border-color:var(--red);color:var(--red)">Error al crear borrador de: ${errors.join(', ')}. Verificá la configuración.</div>`;
-  }
-}
+function doSend(){ sendAll('all'); }
 
 // CONFIG
 function clearAll(){if(!confirm('¿Borrar todos los registros?'))return;S.pacientes=[];save();render();toast('Lista borrada');}
