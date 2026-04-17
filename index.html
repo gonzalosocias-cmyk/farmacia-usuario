@@ -497,7 +497,7 @@ function cancelP(){
 }
 function confirmP(){
   const nom=document.getElementById('e-nom').value.trim(),doc=document.getElementById('e-doc').value.trim(),med=document.getElementById('e-med').value.trim();
-  if(!nom){toast('Falta el nombre');return;}if(!med){toast('Faltan los medicamentos');return;}
+  if(!nom){toast('Falta el nombre');return;}
   addP(nom,doc,med);
   document.getElementById('pc').className='';
   document.getElementById('tx-box').textContent='—';
@@ -510,7 +510,7 @@ function openAddModal(){document.getElementById('m-nom').value='';document.getEl
 function closeAdd(){document.getElementById('mo-add').classList.remove('on');}
 function confirmAdd(){
   const nom=document.getElementById('m-nom').value.trim(),doc=document.getElementById('m-doc').value.trim(),med=document.getElementById('m-med').value.trim();
-  if(!nom){toast('Falta el nombre');return;}if(!med){toast('Faltan los medicamentos');return;}
+  if(!nom){toast('Falta el nombre');return;}
   addP(nom,doc,med);closeAdd();
 }
 function addP(nom,doc,med){
