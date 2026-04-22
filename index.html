@@ -214,6 +214,13 @@ header h1{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;c
       <button id="btn-send-me" class="btn btn-ghost" style="font-size:13px;border:1px solid var(--green);color:var(--green)" onclick="quickSend('me')" disabled>📋 Enviar ahora solo a mí</button>
     </div>
   </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="lbl" style="margin-bottom:0">Imprimir</div>
+    <div class="btn-row">
+      <button id="btn-print-farm" class="btn btn-ghost" style="font-size:13px;border:1px solid var(--blue);color:var(--blue)" onclick="printDoc('farmacia')" disabled>🖨 Lista farmacia</button>
+      <button id="btn-print-copia" class="btn btn-ghost" style="font-size:13px;border:1px solid var(--blue);color:var(--blue)" onclick="printDoc('copia')" disabled>🖨 Mi resumen</button>
+    </div>
+  </div>
 </div>
 
 <!-- PAGE CONFIG -->
@@ -407,6 +414,8 @@ function renderEnvio(){
   document.getElementById('btn-env').disabled=cnt===0;
   document.getElementById('btn-send-all').disabled=cnt===0;
   document.getElementById('btn-send-me').disabled=cnt===0;
+  document.getElementById('btn-print-farm').disabled=cnt===0;
+  document.getElementById('btn-print-copia').disabled=cnt===0;
   document.getElementById('send-status').innerHTML='';
 }
 
@@ -540,11 +549,15 @@ function buildSummary(){
       const clean=m.trim().toLowerCase();
       if(!clean)return;
       const isSusp=/suspen/i.test(clean);
-      // first word = generic name
+      // Extract quantity: x2, x 2, 2 comp, 2 tab, 2 veces, 2 unid
+      let qty=1;
+      const qMatch=clean.match(/[xX]\s*(\d+)|(\d+)\s*(?:comp|veces|unid|tab)/);
+      if(qMatch) qty=parseInt(qMatch[1]||qMatch[2])||1;
+      // First word = generic name (strip non-letters)
       const firstWord=clean.replace(/[^a-záéíóúüñ\s]/gi,' ').trim().split(/\s+/)[0];
       if(!firstWord)return;
       const key=isSusp?firstWord+' (susp)':firstWord;
-      map[key]=(map[key]||0)+1;
+      map[key]=(map[key]||0)+qty;
     });
   });
   return Object.entries(map).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
@@ -564,7 +577,8 @@ function buildFarmaciaHtml(){
       <td style="padding:10px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
       <td style="padding:10px 14px;border-bottom:1px solid #dee2e6;color:#212529;">${p.medicamentos}</td>
     </tr>`).join('');
-  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+  return `<!DOCTYPE html><html><head><style>@media print{.no-print{display:none!important;}body{padding:0;margin:0;}}</style></head><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<div class="no-print" style="margin-bottom:16px;"><button onclick="window.print()" style="background:#343a40;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;">🖨 Imprimir</button></div>
 <p style="color:#495057;margin-bottom:20px;">Buenos días,</p>
 <p style="color:#495057;margin-bottom:24px;">Envío la lista de usuarios con ingresos de fecha <strong>${dateRange()}</strong>.</p>
 <table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;">
@@ -595,7 +609,8 @@ function buildMiCopiaHtml(){
       <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
       <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;">${p.medicamentos}</td>
     </tr>`).join('');
-  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+  return `<!DOCTYPE html><html><head><style>@media print{.no-print{display:none!important;}body{padding:0;margin:0;}}</style></head><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<div class="no-print" style="margin-bottom:16px;"><button onclick="window.print()" style="background:#343a40;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;">🖨 Imprimir</button></div>
 <h2 style="color:#212529;font-size:16px;margin-bottom:4px;">Copia — Medicación semanal</h2>
 <p style="color:#6c757d;font-size:13px;margin-bottom:24px;">${dateRange()} · ${S.pacientes.length} usuario${S.pacientes.length!==1?'s':''}</p>
 
@@ -637,7 +652,8 @@ function buildAdminHtml(){
       <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;font-family:monospace;color:#495057;">${p.documento}</td>
       <td style="padding:9px 14px;border-bottom:1px solid #dee2e6;">${p.medicamentos}</td>
     </tr>`).join('');
-  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+  return `<!DOCTYPE html><html><head><style>@media print{.no-print{display:none!important;}body{padding:0;margin:0;}}</style></head><body style="font-family:Arial,sans-serif;color:#212529;max-width:700px;margin:0 auto;padding:20px;">
+<div class="no-print" style="margin-bottom:16px;"><button onclick="window.print()" style="background:#343a40;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;">🖨 Imprimir</button></div>
 <p style="color:#495057;font-size:15px;font-weight:600;margin-bottom:20px;">Favor imprimir y entregar a Nurse.</p>
 <h2 style="color:#212529;font-size:15px;margin-bottom:4px;">Medicación semanal</h2>
 <p style="color:#6c757d;font-size:13px;margin-bottom:24px;">${dateRange()} · ${S.pacientes.length} usuario${S.pacientes.length!==1?'s':''}</p>
@@ -661,6 +677,15 @@ function buildAdminHtml(){
   <tbody>${rows}</tbody>
 </table>
 </body></html>`;
+}
+
+function printDoc(type){
+  const html=type==='farmacia'?buildFarmaciaHtml():buildMiCopiaHtml();
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>{ w.print(); },400);
 }
 
 const EJS_SVC='service_9g7c21a';
